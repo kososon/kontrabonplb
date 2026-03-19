@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kontra Bon - PT Mitra Nuansa Utama</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Gaya dasar untuk antarmuka pengguna */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            overflow-x: hidden;
+        }
+
+        /* Area ini akan digunakan khusus untuk pencetakan */
+        .print-area {
+            display: none;
+            box-sizing: border-box;
+            font-family: 'Calibri', 'Arial', sans-serif;
+        }
+
+        /* Gaya khusus saat mencetak */
+        @media print {
+            /* Sembunyikan semua elemen kecuali .print-area */
+            body > *:not(.print-area) {
+                display: none !important;
+            }
+
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            .print-area {
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                padding: 0;
+                margin: 0;
+                box-sizing: border-box;
+                /* Menyesuaikan skala cetak menjadi 95% untuk memastikan semua konten muat */
+                transform: scale(0.95);
+                transform-origin: top left;
+            }
+
+            /* Atur ulang ukuran halaman ke 9.5in x 5.5in Lanskap */
+            /* Ini adalah bagian terpenting untuk Continuous Form */
+            @page {
+                size: 24.13cm 13.97cm landscape;
+                /* Tambahkan margin kiri 0.5cm seperti yang diminta */
+                margin: 1cm 1cm 1cm 1.5cm;
+            }
+
+            /* Gaya tambahan untuk tabel saat dicetak agar lebih rapi */
+            .print-area table {
+                border-collapse: collapse;
+                width: 100%;
+            }
+
+            /* Ukuran font ditingkatkan menjadi 12pt untuk keterbacaan yang lebih baik */
+            .print-area th, .print-area td {
+                border: 1px solid #000 !important;
+                padding: 3px 5px; /* Sedikit dikurangi agar muat */
+                vertical-align: top;
+                font-size: 12pt;
+            }
+
+            .print-area th {
+                background-color: #f2f2f2;
+                font-size: 12pt;
+            }
+
+            /* Hapus margin dan padding dari elemen teks di dalam print-area */
+            .print-area p, .print-area h1, .print-area h2 {
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            /* Atur ulang margin antar bagian untuk tampilan cetak */
+            .print-area section {
+                margin-bottom: 8px; /* Tambahkan sedikit jarak antar bagian */
+            }
+
+            /* Sembunyikan tombol cetak */
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <!-- Kontainer utama yang mengisi seluruh jendela -->
+    <div class="min-h-screen w-full p-4 md:p-8 flex flex-col">
+        <div class="bg-white p-8 rounded-lg shadow-lg w-full flex-grow">
+            <!-- Header dengan judul, sub-judul, dan jam nyata -->
+            <div class="flex flex-col md:flex-row items-center md:items-start justify-between mb-8">
+                <div class="text-center md:text-left">
+                    <h1 class="text-3xl font-bold text-gray-800 mb-0">Kontra Bon</h1>
+                    <h2 class="text-xl font-semibold text-gray-600">PT Mitra Nuansa Utama</h2>
+                </div>
+                <!-- Div baru untuk menampilkan waktu nyata -->
+                <div id="real-time-clock" class="text-sm font-medium text-gray-500 mt-4 md:mt-0 md:text-right">
+                    <!-- Waktu akan diisi oleh JavaScript -->
+                </div>
+            </div>
+
+            <!-- Notifikasi -->
+            <div id="notification" class="hidden bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <span class="block sm:inline" id="notification-message"></span>
+            </div>
+
+            <div class="flex flex-col md:flex-row items-center justify-between mb-6 space-y-4 md:space-y-0">
+                <label for="excel-input" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-full shadow-md cursor-pointer transition duration-300 ease-in-out">
+                    <span>Impor dari Excel (XLS)</span>
+                    <input type="file" id="excel-input" class="hidden" accept=".xls,.xlsx">
+                </label>
+                <button id="clear-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300 ease-in-out">Hapus Data</button>
+            </div>
+            
+            <div class="mb-6">
+                <label for="customer-search" class="block text-gray-700 font-semibold mb-2">Cari Pelanggan / Toko:</label>
+                <input type="text" id="customer-search" placeholder="Ketik nama pelanggan atau toko..." class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" disabled>
+                <div id="autocomplete-results" class="bg-white border border-gray-300 rounded-md mt-1 max-h-48 overflow-y-auto hidden"></div>
+            </div>
+
+            <div id="kontra-bon-container" class="hidden">
+                <h3 class="text-2xl font-bold text-gray-800 mb-4 mt-8">Faktur <span id="selected-customer-name"></span> / <span id="selected-store-name"></span></h3>
+                
+                <div class="overflow-x-auto bg-gray-50 rounded-lg shadow-inner">
+                    <table class="min-w-full divide-y divide-gray-200" id="invoices-table">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pilih</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">No. Faktur</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Tgl. Faktur</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Jatuh Tempo</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">TOP</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Nominal</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pembayaran / Retur</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="invoices-body">
+                            <!-- Data faktur akan dimasukkan di sini oleh JavaScript -->
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-gray-100">
+                                <td colspan="7" class="px-6 py-3 text-right text-sm font-bold text-gray-700">Total Terpilih:</td>
+                                <td class="px-6 py-3 text-sm font-bold text-gray-700" id="selected-total">Rp0</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div class="mt-8 flex justify-center">
+                    <button id="print-button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-md transition duration-300 ease-in-out disabled:opacity-50" disabled>Cetak</button>
+                </div>
+            </div>
+            
+            <div class="text-center text-gray-500 text-sm mt-4">
+                Design by : Wilson Susanto
+            </div>
+        </div>
+        
+    </div>
+    
+    <!-- Area pratinjau cetak yang tersembunyi -->
+    <div class="print-area" id="print-area">
+        <section class="flex flex-col justify-between items-start">
+            <div class="flex justify-between w-full">
+                <div class="text-left">
+                    <h1 style="font-size: 13pt;" class="font-semibold">PT MITRA NUANSA UTAMA</h1>
+                    <h2 style="font-size: 13pt;" class="font-bold mt-1">KONTRA BON</h2>
+                </div>
+                <div class="text-right">
+                    <!-- Updated line below to include font-size and font-bold styles -->
+                    <p id="print-customer-name" class="font-bold" style="font-size: 13pt;"></p>
+                </div>
+            </div>
+        </section>
+
+        <section class="mt-2">
+            <table class="w-full border-collapse border border-gray-400">
+                <thead>
+                    <tr class="bg-gray-100 text-sm">
+                        <th class="border border-gray-400 p-2 text-center w-10 whitespace-nowrap">No.</th>
+                        <th class="border border-gray-400 p-2 text-center whitespace-nowrap">No. Faktur</th>
+                        <th class="border border-gray-400 p-2 text-center whitespace-nowrap">Tgl. Faktur</th>
+                        <th class="border border-gray-400 p-2 text-center whitespace-nowrap">Jatuh Tempo</th>
+                        <th class="border border-gray-400 p-2 text-center whitespace-nowrap">TOP</th>
+                        <th class="border border-gray-400 p-2 text-center whitespace-nowrap">Nominal</th>
+                        <th class="border border-gray-400 p-2 text-center whitespace-nowrap">Pembayaran / Retur</th>
+                        <th class="border border-gray-400 p-2 text-center whitespace-nowrap">Total</th>
+                    </tr>
+                </thead>
+                <tbody id="print-table-body">
+                    <!-- Baris akan dimasukkan di sini oleh JavaScript -->
+                </tbody>
+                <tfoot>
+                    <tr class="font-bold">
+                        <td colspan="6" class="border border-gray-400 p-2 text-right whitespace-nowrap">TOTAL</td>
+                        <td class="border border-gray-400 p-2 text-right whitespace-nowrap"></td>
+                        <td class="border border-gray-400 p-2 text-right whitespace-nowrap" id="print-total"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </section>
+
+        <section class="mt-2">
+            <p style="font-size: 11pt;">Terbilang: <span id="terbilang" class="font-bold italic"></span></p>
+        </section>
+
+        <section class="flex justify-between mt-2">
+            <div>
+                <p style="font-size: 11pt;">NB :</p>
+                <p style="font-size: 11pt;">Pembayaran dengan BG/Cheque/Transfer</p>
+                <p style="font-size: 11pt;">BCA 0102353151 an PT Mitra Nuansa Utama</p>
+                <p style="font-size: 11pt;">BRI 009601777700302 an PT Mitra Nuansa Utama</p>
+                <p class="mt-2 text-xs italic">Pembayaran dianggap lunas apabila telah masuk / diterima di rekening PT Mitra Nuansa Utama</p>
+            </div>
+
+            <div class="text-right">
+                <p class="mt-2 mb-12">Yang Menerima</p>
+                <div class="mt-32">
+                    <p>(.................................)</p>
+                    <p>Nama Terang + Cap Toko</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const excelInput = document.getElementById('excel-input');
+            const notification = document.getElementById('notification');
+            const notificationMessage = document.getElementById('notification-message');
+            const customerSearch = document.getElementById('customer-search');
+            const autocompleteResults = document.getElementById('autocomplete-results');
+            const kontraBonContainer = document.getElementById('kontra-bon-container');
+            const invoicesBody = document.getElementById('invoices-body');
+            const selectedCustomerName = document.getElementById('selected-customer-name');
+            const selectedStoreName = document.getElementById('selected-store-name');
+            const selectedTotal = document.getElementById('selected-total');
+            const printButton = document.getElementById('print-button');
+            const clearButton = document.getElementById('clear-button');
+            const printArea = document.getElementById('print-area');
+            const realTimeClock = document.getElementById('real-time-clock');
+            
+            let allInvoicesData = [];
+            let customersAndStores = [];
+            let selectedInvoices = [];
+
+            // Fungsi untuk memperbarui jam dan tanggal secara nyata
+            const updateClock = () => {
+                const now = new Date();
+                const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                const dayName = days[now.getDay()];
+                const date = now.getDate();
+                const month = now.toLocaleString('id-ID', { month: 'long' });
+                const year = now.getFullYear();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+
+                realTimeClock.textContent = `${dayName}, ${date} ${month} ${year}, ${hours}:${minutes}:${seconds}`;
+            };
+
+            // Memanggil fungsi updateClock setiap detik
+            setInterval(updateClock, 1000);
+            updateClock(); // Panggil sekali saat dimuat untuk menghindari jeda awal
+
+            // Fungsi untuk membersihkan string dari karakter non-numerik, kecuali titik
+            const cleanNumberString = (str) => {
+                if (typeof str === 'number') return String(str);
+                if (typeof str !== 'string') return '0';
+                // Replace comma with dot for decimal and remove other non-numeric chars
+                return str.replace(/,/, '.').replace(/[^0-9.]/g, '');
+            };
+
+            // Fungsi untuk menampilkan notifikasi
+            const showNotification = (message, type = 'success') => {
+                notificationMessage.textContent = message;
+                notification.classList.remove('hidden', 'bg-green-100', 'bg-red-100', 'border-green-400', 'border-red-400', 'text-green-700', 'text-red-700');
+                if (type === 'success') {
+                    notification.classList.add('bg-green-100', 'border-green-400', 'text-green-700');
+                } else {
+                    notification.classList.add('bg-red-100', 'border-red-400', 'text-red-700');
+                }
+                setTimeout(() => {
+                    notification.classList.add('hidden');
+                }, 5000);
+            };
+
+            excelInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const data = new Uint8Array(event.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const firstSheetName = workbook.SheetNames[0];
+                            const worksheet = workbook.Sheets[firstSheetName];
+                            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                            
+                            allInvoicesData = jsonData.map(item => ({
+                                customerName: item['Nama Customer'],
+                                storeName: item['Nama Toko'],
+                                invoiceNo: item['No Faktur'],
+                                invoiceDate: item['Tgl Faktur'],
+                                dueDate: item['Tgl Jatuh Tempo'],
+                                top: item['TOP'],
+                                nominal: parseFloat(cleanNumberString(item['Nominal'])) || 0,
+                                paymentReturn: parseFloat(cleanNumberString(item['Pembayaran / Retur'])) || 0,
+                                total: parseFloat(cleanNumberString(item['Total'])) || 0
+                            }));
+
+                            const uniqueCustomers = new Set();
+                            customersAndStores = [];
+                            allInvoicesData.forEach(item => {
+                                const key = `${item.customerName}|${item.storeName}`;
+                                if (!uniqueCustomers.has(key)) {
+                                    uniqueCustomers.add(key);
+                                    customersAndStores.push({
+                                        customerName: item.customerName,
+                                        storeName: item.storeName
+                                    });
+                                }
+                            });
+
+                            showNotification('Data berhasil diimpor!');
+                            customerSearch.disabled = false;
+                        } catch (error) {
+                            showNotification('Gagal memuat file. Pastikan format file sudah benar.', 'error');
+                            console.error('Error reading Excel file:', error);
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                }
+            });
+
+            clearButton.addEventListener('click', () => {
+                allInvoicesData = [];
+                customersAndStores = [];
+                selectedInvoices = [];
+                customerSearch.value = '';
+                customerSearch.disabled = true;
+                autocompleteResults.classList.add('hidden');
+                kontraBonContainer.classList.add('hidden');
+                invoicesBody.innerHTML = '';
+                selectedTotal.textContent = formatRupiah(0);
+                printButton.disabled = true;
+                showNotification('Data berhasil dihapus!', 'success');
+            });
+
+            customerSearch.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                autocompleteResults.innerHTML = '';
+                if (query.length > 0) {
+                    const filteredResults = customersAndStores.filter(item =>
+                        item.customerName.toLowerCase().includes(query) || item.storeName.toLowerCase().includes(query)
+                    );
+                    
+                    if (filteredResults.length > 0) {
+                        autocompleteResults.classList.remove('hidden');
+                        filteredResults.forEach(item => {
+                            const div = document.createElement('div');
+                            div.textContent = `${item.customerName} - ${item.storeName}`;
+                            div.classList.add('px-4', 'py-2', 'cursor-pointer', 'hover:bg-gray-200');
+                            div.addEventListener('click', () => {
+                                customerSearch.value = `${item.customerName} - ${item.storeName}`;
+                                autocompleteResults.classList.add('hidden');
+                                displayInvoices(item.customerName, item.storeName);
+                            });
+                            autocompleteResults.appendChild(div);
+                        });
+                    } else {
+                        autocompleteResults.classList.add('hidden');
+                    }
+                } else {
+                    autocompleteResults.classList.add('hidden');
+                }
+            });
+
+            const displayInvoices = (customerName, storeName) => {
+                selectedCustomerName.textContent = customerName;
+                selectedStoreName.textContent = storeName;
+                kontraBonContainer.classList.remove('hidden');
+                invoicesBody.innerHTML = '';
+                selectedInvoices = [];
+                updateTotal();
+                
+                const filteredInvoices = allInvoicesData.filter(item =>
+                    item.customerName === customerName && item.storeName === storeName
+                );
+
+                // Sort invoices by invoice date in ascending order
+                // This converts the 'dd/mm/yyyy' date string to a valid Date object for comparison
+                filteredInvoices.sort((a, b) => {
+                    const dateA = new Date(a.invoiceDate.split('/').reverse().join('-'));
+                    const dateB = new Date(b.invoiceDate.split('/').reverse().join('-'));
+                    return dateA - dateB;
+                });
+
+                filteredInvoices.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.classList.add('hover:bg-gray-50');
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                            <input type="checkbox" data-invoice-no="${item.invoiceNo}" class="invoice-checkbox h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">${item.invoiceNo}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">${item.invoiceDate}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">${item.dueDate}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">${item.top}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">${formatRupiah(item.nominal)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">${formatRupiah(item.paymentReturn)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 invoice-total text-right">${formatRupiah(item.total)}</td>
+                    `;
+                    invoicesBody.appendChild(row);
+                });
+            };
+
+            invoicesBody.addEventListener('change', (e) => {
+                if (e.target.classList.contains('invoice-checkbox')) {
+                    const checkbox = e.target;
+                    const invoiceNo = checkbox.dataset.invoiceNo;
+                    const invoice = allInvoicesData.find(inv => inv.invoiceNo === invoiceNo);
+
+                    if (checkbox.checked) {
+                        selectedInvoices.push(invoice);
+                    } else {
+                        selectedInvoices = selectedInvoices.filter(inv => inv.invoiceNo !== invoiceNo);
+                    }
+                    updateTotal();
+                    printButton.disabled = selectedInvoices.length === 0;
+                }
+            });
+
+            const updateTotal = () => {
+                const total = selectedInvoices.reduce((sum, item) => sum + item.total, 0);
+                selectedTotal.textContent = formatRupiah(total);
+            };
+
+            // Fungsi untuk memformat angka menjadi format Rupiah (Rp)
+            const formatRupiah = (number) => {
+                return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
+            };
+
+            // Fungsi untuk mengonversi angka menjadi terbilang dalam bahasa Indonesia
+            const terbilang = (num) => {
+                if (num === 0) return 'Nol';
+                
+                const units = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan'];
+                const teens = ['', 'Sebelas', 'Dua Belas', 'Tiga Belas', 'Empat Belas', 'Lima Belas', 'Enam Belas', 'Tujuh Belas', 'Delapan Belas', 'Sembilan Belas'];
+                const tens = ['', 'Sepuluh', 'Dua Puluh', 'Tiga Puluh', 'Empat Puluh', 'Lima Puluh', 'Enam Puluh', 'Tujuh Puluh', 'Delapan Puluh', 'Sembilan Puluh'];
+                const thousands = ['', 'Ribu', 'Juta', 'Miliar', 'Triliun'];
+                
+                const spellThreeDigits = (n) => {
+                    let text = '';
+                    let tempNum = parseInt(n, 10);
+                    
+                    const hundredsDigit = Math.floor(tempNum / 100);
+                    const tensAndUnits = tempNum % 100;
+                    
+                    if (hundredsDigit === 1) {
+                        text += 'Seratus ';
+                    } else if (hundredsDigit > 1) {
+                        text += units[hundredsDigit] + ' Ratus ';
+                    }
+                    
+                    if (tensAndUnits > 0) {
+                        if (tensAndUnits < 10) {
+                            text += units[tensAndUnits] + ' ';
+                        } else if (tensAndUnits >= 10 && tensAndUnits < 20) {
+                            if (tensAndUnits === 10) text += 'Sepuluh ';
+                            else text += teens[tensAndUnits - 10] + ' ';
+                        } else {
+                            const tensDigit = Math.floor(tensAndUnits / 10);
+                            const unitsDigit = tensAndUnits % 10;
+                            text += tens[tensDigit] + ' ';
+                            if (unitsDigit > 0) {
+                                text += units[unitsDigit] + ' ';
+                            }
+                        }
+                    }
+                    return text;
+                };
+
+                let numStr = String(num);
+                let groups = [];
+                while (numStr.length > 0) {
+                    groups.push(numStr.substring(Math.max(0, numStr.length - 3)));
+                    numStr = numStr.substring(0, Math.max(0, numStr.length - 3));
+                }
+
+                let result = '';
+                for (let i = groups.length - 1; i >= 0; i--) {
+                    const groupText = spellThreeDigits(groups[i]);
+                    if (groupText.trim() !== '') {
+                        if (i === 1 && groupText.trim() === 'Satu') {
+                            result += 'Seribu ';
+                        } else {
+                            result += groupText.trim() + ' ' + thousands[i] + ' ';
+                        }
+                    }
+                }
+                
+                return result.trim() + ' Rupiah';
+            };
+
+
+            printButton.addEventListener('click', () => {
+                if (selectedInvoices.length === 0) {
+                    showNotification('Silakan pilih setidaknya satu faktur untuk dicetak.', 'error');
+                    return;
+                }
+
+                const printTableBody = document.getElementById('print-table-body');
+                const printCustomerName = document.getElementById('print-customer-name');
+                const printTotal = document.getElementById('print-total');
+                const terbilangSpan = document.getElementById('terbilang');
+                
+                // Menggabungkan nama pelanggan dan nama toko
+                printCustomerName.textContent = `${selectedCustomerName.textContent} / ${selectedStoreName.textContent}`;
+                
+                printTableBody.innerHTML = '';
+                let total = 0;
+                // Urutkan faktur yang dipilih berdasarkan tanggal faktur
+                selectedInvoices.sort((a, b) => {
+                    const dateA = new Date(a.invoiceDate.split('/').reverse().join('-'));
+                    const dateB = new Date(b.invoiceDate.split('/').reverse().join('-'));
+                    return dateA - dateB;
+                });
+
+                selectedInvoices.forEach((item, index) => {
+                    const row = document.createElement('tr');
+                    row.classList.add('text-sm');
+                    row.innerHTML = `
+                        <td class="border border-gray-400 p-2 text-center whitespace-nowrap">${index + 1}</td>
+                        <td class="border border-gray-400 p-2 text-center whitespace-nowrap">${item.invoiceNo}</td>
+                        <td class="border border-gray-400 p-2 text-center whitespace-nowrap">${item.invoiceDate}</td>
+                        <td class="border border-gray-400 p-2 text-center whitespace-nowrap">${item.dueDate}</td>
+                        <td class="border border-gray-400 p-2 text-center whitespace-nowrap">${item.top}</td>
+                        <td class="border border-gray-400 p-2 text-right whitespace-nowrap">${formatRupiah(item.nominal)}</td>
+                        <td class="border border-gray-400 p-2 text-right whitespace-nowrap">${formatRupiah(item.paymentReturn)}</td>
+                        <td class="border border-gray-400 p-2 text-right whitespace-nowrap">${formatRupiah(item.total)}</td>
+                    `;
+                    printTableBody.appendChild(row);
+                    total += item.total;
+                });
+                
+                printTotal.textContent = formatRupiah(total);
+                terbilangSpan.textContent = `# ${terbilang(total)} #`;
+
+                // Panggil dialog cetak setelah data disiapkan
+                window.print();
+            });
+        });
+    </script>
+
+</body>
+</html>
